@@ -1,4 +1,4 @@
-module upgrade-ami
+module github.com/ddl-r-abdulaziz/upgrade-ami
 
 go 1.24.4
 
