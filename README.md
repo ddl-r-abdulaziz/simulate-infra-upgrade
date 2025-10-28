@@ -24,4 +24,6 @@ The program will:
 1. Connect to your cluster and retrieve all EC2NodeClass objects
 2. Query AWS for available AMI versions matching your nodegroups and k8s version
 3. Display an interactive terminal UI to select the desired version
-4. Update all nodeclasses to use the selected AMI version
+4. Show a dry-run summary of all changes that will be made
+5. Ask for confirmation before applying changes
+6. Update all nodeclasses to use the selected AMI version

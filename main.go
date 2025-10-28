@@ -193,7 +193,14 @@ func main() {
 	fmt.Printf("\n✅ Selected version: %s\n", selectedVersion)
 	fmt.Println()
 
-	// Update each nodeclass
+	// Dry run: collect all changes first
+	type change struct {
+		nodeclassName string
+		oldAMI        string
+		newAMI        string
+	}
+	var changes []change
+
 	for _, nc := range nodeClasses.Items {
 		if len(nc.Spec.AMISelectorTerms) > 0 {
 			pattern, err := nodeclasses.ParseAMIName(nc.Spec.AMISelectorTerms[0].Name)
@@ -221,24 +228,61 @@ func main() {
 				newAMI = fmt.Sprintf("domino-eks-%s-v%s", pattern.K8sVersion, versionDate)
 			}
 
-			fmt.Printf("📝 Updating %s...\n", nc.Metadata.Name)
-			fmt.Printf("   Old: %s\n", oldAMI)
-			fmt.Printf("   New: %s\n", newAMI)
+			changes = append(changes, change{
+				nodeclassName: nc.Metadata.Name,
+				oldAMI:        oldAMI,
+				newAMI:        newAMI,
+			})
+		}
+	}
 
-			if err := nodeclasses.UpdateNodeClass(nc.Metadata.Name, newAMI); err != nil {
-				fmt.Fprintf(os.Stderr, "⚠️  Failed to update %s: %v\n", nc.Metadata.Name, err)
-				continue
-			}
-
-			fmt.Printf("✅ Updated %s\n", nc.Metadata.Name)
+	// Display dry run summary
+	fmt.Println("📋 Dry Run - Changes to be made:")
+	fmt.Println(strings.Repeat("=", 80))
+	for i, ch := range changes {
+		if i > 0 {
 			fmt.Println()
 		}
+		fmt.Printf("NodeClass: %s\n", ch.nodeclassName)
+		fmt.Printf("  Old AMI: %s\n", ch.oldAMI)
+		fmt.Printf("  New AMI: %s\n", ch.newAMI)
+	}
+	fmt.Println(strings.Repeat("=", 80))
+	fmt.Println()
+
+	// Ask for confirmation
+	fmt.Print("Apply changes? (y/N): ")
+	var response string
+	fmt.Scanln(&response)
+
+	if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+		fmt.Println("Cancelled")
+		os.Exit(0)
+	}
+
+	fmt.Println()
+	fmt.Println("🚀 Applying changes...")
+	fmt.Println()
+
+	// Apply the changes
+	for _, ch := range changes {
+		fmt.Printf("📝 Updating %s...\n", ch.nodeclassName)
+		fmt.Printf("   Old: %s\n", ch.oldAMI)
+		fmt.Printf("   New: %s\n", ch.newAMI)
+
+		if err := nodeclasses.UpdateNodeClass(ch.nodeclassName, ch.newAMI); err != nil {
+			fmt.Fprintf(os.Stderr, "⚠️  Failed to update %s: %v\n", ch.nodeclassName, err)
+			continue
+		}
+
+		fmt.Printf("✅ Updated %s\n", ch.nodeclassName)
+		fmt.Println()
 	}
 
 	fmt.Println("✅ All nodeclasses updated successfully!")
 	fmt.Println()
 	fmt.Println("You can verify the changes with:")
-	fmt.Println("  kubectl get ec2nodeclass -o jsonpath='{.items[*].spec.amiSelectorTerms[0].name}'")
+	fmt.Println("  kubectl get nodeclaims.karpenter.sh -owide")
 }
 
 type itemDelegate struct{}
