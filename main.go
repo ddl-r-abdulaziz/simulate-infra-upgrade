@@ -10,8 +10,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"upgrade-ami/pkg/amis"
-	"upgrade-ami/pkg/nodeclasses"
+	"github.com/ddl-r-abdulaziz/upgrade-ami/pkg/amis"
+	"github.com/ddl-r-abdulaziz/upgrade-ami/pkg/nodeclasses"
 )
 
 var (
