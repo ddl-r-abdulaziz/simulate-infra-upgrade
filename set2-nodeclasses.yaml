@@ -1,0 +1,155 @@
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: domino-eks-compute
+spec:
+  amiFamily: AL2
+  amiSelectorTerms:
+    - name: domino-eks-1.33-v20250909
+      owner: "389480950331"
+  blockDeviceMappings:
+    - deviceName: /dev/sda1
+      ebs:
+        encrypted: true
+        volumeSize: 150Gi
+        volumeType: gp3
+  metadataOptions:
+    httpEndpoint: enabled
+    httpProtocolIPv6: disabled
+    httpPutResponseHopLimit: 2
+    httpTokens: required
+  role: e2e-smoke101590-eks-nodes
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: e2e-smoke101590
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: e2e-smoke101590
+  tags:
+    aws-apn-id: pc:2umrgw02q6y8t2te66fgdx6sk
+    build_timestamp: 2025-10-27T17:19:54.642064
+    deploy_id: e2e-smoke101590
+    deploy_tag: 6.2.0.catalog-DOM-70660-reroll-on-karpenter.ed6f31a
+    deploy_type: qe-cloud-karpenter
+    domino-karpenter: e2e-smoke101590
+    infosec_accountability: Domino CloudOps
+    infosec_classification: sensitive
+    infosec_purpose: Domino Deployment
+    user_email: builds-svc@dominodatalab.com
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: domino-eks-gpu
+spec:
+  amiFamily: AL2
+  amiSelectorTerms:
+    - name: domino-eks-gpu-1.33-v20250909
+      owner: "389480950331"
+  blockDeviceMappings:
+    - deviceName: /dev/sda1
+      ebs:
+        encrypted: true
+        volumeSize: 50Gi
+        volumeType: gp3
+  metadataOptions:
+    httpEndpoint: enabled
+    httpProtocolIPv6: disabled
+    httpPutResponseHopLimit: 2
+    httpTokens: required
+  role: e2e-smoke101590-eks-nodes
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: e2e-smoke101590
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: e2e-smoke101590
+  tags:
+    aws-apn-id: pc:2umrgw02q6y8t2te66fgdx6sk
+    build_timestamp: 2025-10-27T17:19:54.642064
+    deploy_id: e2e-smoke101590
+    deploy_tag: 6.2.0.catalog-DOM-70660-reroll-on-karpenter.ed6f31a
+    deploy_type: qe-cloud-karpenter
+    domino-karpenter: e2e-smoke101590
+    infosec_accountability: Domino CloudOps
+    infosec_classification: sensitive
+    infosec_purpose: Domino Deployment
+    user_email: builds-svc@dominodatalab.com
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: domino-eks-neuron
+spec:
+  amiFamily: AL2
+  amiSelectorTerms:
+    - name: domino-eks-neuron-1.33-v20250909
+      owner: "389480950331"
+  blockDeviceMappings:
+    - deviceName: /dev/sda1
+      ebs:
+        encrypted: true
+        volumeSize: 500Gi
+        volumeType: gp3
+  metadataOptions:
+    httpEndpoint: enabled
+    httpProtocolIPv6: disabled
+    httpPutResponseHopLimit: 2
+    httpTokens: required
+  role: e2e-smoke101590-eks-nodes
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: e2e-smoke101590
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: e2e-smoke101590
+  tags:
+    aws-apn-id: pc:2umrgw02q6y8t2te66fgdx6sk
+    build_timestamp: 2025-10-27T17:19:54.642064
+    deploy_id: e2e-smoke101590
+    deploy_tag: 6.2.0.catalog-DOM-70660-reroll-on-karpenter.ed6f31a
+    deploy_type: qe-cloud-karpenter
+    domino-karpenter: e2e-smoke101590
+    infosec_accountability: Domino CloudOps
+    infosec_classification: sensitive
+    infosec_purpose: Domino Deployment
+    user_email: builds-svc@dominodatalab.com
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: domino-eks-platform
+spec:
+  amiFamily: AL2
+  amiSelectorTerms:
+    - name: domino-eks-1.33-v20250909
+      owner: "389480950331"
+  blockDeviceMappings:
+    - deviceName: /dev/sda1
+      ebs:
+        encrypted: true
+        volumeSize: 100Gi
+        volumeType: gp3
+  metadataOptions:
+    httpEndpoint: enabled
+    httpProtocolIPv6: disabled
+    httpPutResponseHopLimit: 2
+    httpTokens: required
+  role: e2e-smoke101590-eks-nodes
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: e2e-smoke101590
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: e2e-smoke101590
+  tags:
+    aws-apn-id: pc:2umrgw02q6y8t2te66fgdx6sk
+    build_timestamp: 2025-10-27T17:19:54.642064
+    deploy_id: e2e-smoke101590
+    deploy_tag: 6.2.0.catalog-DOM-70660-reroll-on-karpenter.ed6f31a
+    deploy_type: qe-cloud-karpenter
+    domino-karpenter: e2e-smoke101590
+    infosec_accountability: Domino CloudOps
+    infosec_classification: sensitive
+    infosec_purpose: Domino Deployment
+    user_email: builds-svc@dominodatalab.com
