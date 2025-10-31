@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // EC2NodeClass represents a Karpenter EC2NodeClass resource
@@ -187,4 +188,128 @@ func BuildNodeClassMap(nodeClasses NodeClassList) map[string]*NodeClassInfo {
 	}
 
 	return nodeclassMap
+}
+
+// NodeClaim represents a Karpenter NodeClaim resource
+type NodeClaim struct {
+	Metadata struct {
+		Name              string    `json:"name"`
+		CreationTimestamp time.Time `json:"creationTimestamp"`
+	} `json:"metadata"`
+	Status struct {
+		Conditions []struct {
+			Type   string `json:"type"`
+			Status string `json:"status"`
+			Reason string `json:"reason,omitempty"`
+		} `json:"conditions"`
+	} `json:"status"`
+	Spec struct {
+		NodeClassRef struct {
+			Name string `json:"name"`
+		} `json:"nodeClassRef"`
+	} `json:"spec"`
+}
+
+// NodeClaimList represents a list of NodeClaim resources
+type NodeClaimList struct {
+	Items []NodeClaim `json:"items"`
+}
+
+// GetNodeClaims retrieves all NodeClaim objects from the cluster
+func GetNodeClaims() (NodeClaimList, error) {
+	cmd := exec.Command("kubectl", "get", "nodeclaims.karpenter.sh", "-o", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		return NodeClaimList{}, fmt.Errorf("failed to get nodeclaims: %w", err)
+	}
+
+	var nodeClaims NodeClaimList
+	if err := json.Unmarshal(output, &nodeClaims); err != nil {
+		return NodeClaimList{}, fmt.Errorf("failed to parse nodeclaims: %w", err)
+	}
+
+	return nodeClaims, nil
+}
+
+// NodeClaimStatus represents the drift status of a nodeclaim
+type NodeClaimStatus struct {
+	Name      string
+	Drifted   bool
+	Reason    string
+	NodeClass string
+	Age       time.Duration
+}
+
+// GetNodeClaimStatuses retrieves the drift status of all nodeclaims
+func GetNodeClaimStatuses() ([]NodeClaimStatus, error) {
+	nodeClaims, err := GetNodeClaims()
+	if err != nil {
+		return nil, err
+	}
+
+	var statuses []NodeClaimStatus
+	now := time.Now()
+	for _, nc := range nodeClaims.Items {
+		// Calculate age
+		age := now.Sub(nc.Metadata.CreationTimestamp)
+
+		status := NodeClaimStatus{
+			Name:      nc.Metadata.Name,
+			Drifted:   false,
+			Reason:    "",
+			NodeClass: nc.Spec.NodeClassRef.Name,
+			Age:       age,
+		}
+
+		// Check for drift condition (Karpenter may use different condition names)
+		for _, condition := range nc.Status.Conditions {
+			// Check for common drift condition types
+			if condition.Type == "Drifted" || condition.Type == "Drift" {
+				if condition.Status == "True" {
+					status.Drifted = true
+					status.Reason = condition.Reason
+				}
+				break
+			}
+		}
+
+		statuses = append(statuses, status)
+	}
+
+	return statuses, nil
+}
+
+// WaitForNodeClaimsUndrifted waits for all nodeclaims to become undrifted, updating status as we wait
+func WaitForNodeClaimsUndrifted(updateInterval time.Duration, callback func([]NodeClaimStatus) bool) error {
+	ticker := time.NewTicker(updateInterval)
+	defer ticker.Stop()
+
+	for {
+		statuses, err := GetNodeClaimStatuses()
+		if err != nil {
+			return fmt.Errorf("failed to get nodeclaim statuses: %w", err)
+		}
+
+		// Display current status
+		shouldContinue := callback(statuses)
+		if !shouldContinue {
+			return nil
+		}
+
+		// Check if all are undrifted
+		allUndrifted := true
+		for _, status := range statuses {
+			if status.Drifted {
+				allUndrifted = false
+				break
+			}
+		}
+
+		if allUndrifted {
+			return nil
+		}
+
+		// Wait for next tick
+		<-ticker.C
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -24,13 +25,31 @@ var (
 )
 
 type item struct {
-	version string
-	date    string
+	version  string
+	date     string
+	waitOnly bool // true for "just wait" option
 }
 
-func (i item) FilterValue() string { return i.version }
-func (i item) Title() string       { return i.version }
-func (i item) Description() string { return i.date }
+func (i item) FilterValue() string {
+	if i.waitOnly {
+		return "wait"
+	}
+	return i.version
+}
+
+func (i item) Title() string {
+	if i.waitOnly {
+		return "⏳ Just wait (monitor nodeclaims)"
+	}
+	return i.version
+}
+
+func (i item) Description() string {
+	if i.waitOnly {
+		return "Monitor nodeclaim drift status without making changes"
+	}
+	return i.date
+}
 
 type model struct {
 	list     list.Model
@@ -57,7 +76,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			i, ok := m.list.SelectedItem().(item)
 			if ok {
-				m.choice = i.version
+				// Use FilterValue to get the correct choice (handles both version and "wait")
+				m.choice = i.FilterValue()
 			}
 			return m, tea.Quit
 		}
@@ -147,6 +167,10 @@ func main() {
 
 	// Convert to items for bubbletea
 	var items []list.Item
+	// Add "just wait" option at the top
+	items = append(items, item{
+		waitOnly: true,
+	})
 	for _, vi := range versionItems {
 		items = append(items, item{
 			version: fmt.Sprintf("v%s", vi.Version),
@@ -181,7 +205,18 @@ func main() {
 		os.Exit(0)
 	}
 
-	selectedVersion := finalModel.(model).choice
+	selectedItem := finalModel.(model).choice
+
+	// Check if "just wait" was selected
+	if selectedItem == "wait" {
+		fmt.Println("\n⏳ Monitoring nodeclaim drift status...")
+		fmt.Println("Press Ctrl+C to stop monitoring")
+		fmt.Println()
+		waitForNodeClaims()
+		return
+	}
+
+	selectedVersion := selectedItem
 	if selectedVersion == "" {
 		fmt.Println("No version selected")
 		os.Exit(0)
@@ -281,8 +316,93 @@ func main() {
 
 	fmt.Println("✅ All nodeclasses updated successfully!")
 	fmt.Println()
-	fmt.Println("You can verify the changes with:")
-	fmt.Println("  kubectl get nodeclaims.karpenter.sh -owide")
+
+	// Wait for nodeclaims to become undrifted
+	fmt.Println("⏳ Waiting for nodeclaims to become undrifted...")
+	fmt.Println("Press Ctrl+C to skip waiting")
+	fmt.Println()
+	waitForNodeClaims()
+}
+
+// formatAge formats a duration similar to kubectl age format
+func formatAge(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		minutes := int(d.Minutes())
+		seconds := int(d.Seconds()) % 60
+		if seconds == 0 {
+			return fmt.Sprintf("%dm", minutes)
+		}
+		return fmt.Sprintf("%dm%ds", minutes, seconds)
+	}
+	if d < 24*time.Hour {
+		hours := int(d.Hours())
+		minutes := int(d.Minutes()) % 60
+		if minutes == 0 {
+			return fmt.Sprintf("%dh", hours)
+		}
+		return fmt.Sprintf("%dh%dm", hours, minutes)
+	}
+	days := int(d.Hours() / 24)
+	hours := int(d.Hours()) % 24
+	if hours == 0 {
+		return fmt.Sprintf("%dd", days)
+	}
+	return fmt.Sprintf("%dd%dh", days, hours)
+}
+
+// waitForNodeClaims waits for nodeclaims to become undrifted and displays status
+func waitForNodeClaims() {
+	err := nodeclasses.WaitForNodeClaimsUndrifted(5*time.Second, func(statuses []nodeclasses.NodeClaimStatus) bool {
+		// Clear screen and display status
+		fmt.Print("\033[H\033[2J") // ANSI escape codes to clear screen
+		fmt.Println("📊 NodeClaim Drift Status")
+		fmt.Println(strings.Repeat("=", 80))
+
+		if len(statuses) == 0 {
+			fmt.Println("No nodeclaims found")
+			fmt.Println()
+			fmt.Println("Press Ctrl+C to exit")
+			return true
+		}
+
+		driftedCount := 0
+		for _, status := range statuses {
+			statusIcon := "✅"
+			statusText := "Undrifted"
+			if status.Drifted {
+				statusIcon = "⚠️"
+				statusText = "Drifted"
+				if status.Reason != "" {
+					statusText += fmt.Sprintf(" (%s)", status.Reason)
+				}
+				driftedCount++
+			}
+			ageStr := formatAge(status.Age)
+			fmt.Printf("%s %s (NodeClass: %s, Age: %s)\n", statusIcon, status.Name, status.NodeClass, ageStr)
+			fmt.Printf("   Status: %s\n", statusText)
+			fmt.Println()
+		}
+
+		fmt.Println(strings.Repeat("=", 80))
+		if driftedCount > 0 {
+			fmt.Printf("⏳ Waiting... (%d/%d nodeclaims still drifted)\n", driftedCount, len(statuses))
+		} else {
+			fmt.Println("✅ All nodeclaims are undrifted!")
+		}
+		fmt.Println("Press Ctrl+C to exit")
+
+		return true // Continue waiting
+	})
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\n⚠️  Error monitoring nodeclaims: %v\n", err)
+		return
+	}
+
+	fmt.Println("\n✅ All nodeclaims are now undrifted!")
 }
 
 type itemDelegate struct{}
