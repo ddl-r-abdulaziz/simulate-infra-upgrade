@@ -9,6 +9,7 @@ The Agent thinks too much of this tool. It's purpose is to replace AMI's that we
 ## Requirements
 
 - Access to a Kubernetes cluster via `kubectl`
+- AWS Cluster **with Karpenter** installed.
 - AWS CLI configured with appropriate credentials
 - Go 1.21+ (for building from source)
 
